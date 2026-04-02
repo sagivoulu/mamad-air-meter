@@ -59,6 +59,7 @@ function render(){
   document.getElementById("wV").textContent=W;
   document.getElementById("lV").textContent=L;
   document.getElementById("hV").textContent=H;
+  document.getElementById("sqm").textContent=(W*L).toFixed(1).replace(/\.0$/,"");
 
   var P=0, totalCO2Rate=0;
   for(var g=0;g<AGE_GROUPS.length;g++){
@@ -151,10 +152,11 @@ function init(){
   h+='</div>';
 
   h+='<div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:16px;margin-bottom:20px">';
-  h+='<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px">';
+  h+='<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:8px">';
   h+='<div style="flex:1;min-width:140px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Room width: <span id="wV" style="color:#7c3aed;font-size:18px">3</span>m</label><input type="range" id="rW" min="1.5" max="6" step="0.5" value="3" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1.5m</span><span>6m</span></div></div>';
   h+='<div style="flex:1;min-width:140px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Room length: <span id="lV" style="color:#7c3aed;font-size:18px">3</span>m</label><input type="range" id="rL" min="1.5" max="6" step="0.5" value="3" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1.5m</span><span>6m</span></div></div>';
   h+='</div>';
+  h+='<div style="margin-bottom:12px;font-size:13px;color:#5b21b6;font-weight:600">Floor area: <span id="sqm" style="font-size:18px">9</span> m²</div>';
   h+='<div style="margin-bottom:12px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px">People sleeping: <span id="pV" style="color:#2563eb;font-size:18px">2</span></label>';
   h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">';
   for(var gi=0;gi<AGE_GROUPS.length;gi++){
