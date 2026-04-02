@@ -1,7 +1,17 @@
 <style>body{margin:0;min-height:100vh;background:linear-gradient(160deg,#e8f0fe 0%,#f1f5f9 100%);background-attachment:fixed}</style>
 <div id="app" style="max-width:820px;margin:0 auto;font-family:system-ui,sans-serif;color:#1e293b;padding:16px"></div>
 <script>
-var CEIL = 2.5, START_PCT = 0.04, CO2_HR = 12;
+var CEIL = 2.5, START_PCT = 0.04;
+
+var AGE_GROUPS = [
+  {label:"Infant",    sub:"under 1 yr",  co2:3,    default:0},
+  {label:"Toddler",   sub:"1–3 yrs",     co2:5,    default:0},
+  {label:"Child",     sub:"3–6 yrs",     co2:6,    default:0},
+  {label:"Child",     sub:"6–11 yrs",    co2:8,    default:0},
+  {label:"Pre-teen",  sub:"11–16 yrs",   co2:11,   default:0},
+  {label:"Teen",      sub:"16–21 yrs",   co2:11.5, default:0},
+  {label:"Adult",     sub:"21+ yrs",     co2:12,   default:2}
+];
 
 var DOORS = [
   {label:"Quick open/close (~5 sec)",exchange:0.04,desc:"Door sweep + person walking through"},
@@ -45,16 +55,22 @@ function fh(h){
 function render(){
   var W=parseFloat(document.getElementById("rW").value);
   var L=parseFloat(document.getElementById("rL").value);
-  var P=parseInt(document.getElementById("ppl").value);
   var H=parseInt(document.getElementById("hrs").value);
   document.getElementById("wV").textContent=W;
   document.getElementById("lV").textContent=L;
-  document.getElementById("pV").textContent=P;
   document.getElementById("hV").textContent=H;
+
+  var P=0, totalCO2Rate=0;
+  for(var g=0;g<AGE_GROUPS.length;g++){
+    var cnt=parseInt(document.getElementById("ag"+g).textContent)||0;
+    P+=cnt;
+    totalCO2Rate+=cnt*AGE_GROUPS[g].co2;
+  }
+  document.getElementById("pV").textContent=P;
 
   var vol=W*L*CEIL*1000;
   var sL=(START_PCT/100)*vol;
-  var co2=(sL+CO2_HR*P*H)/vol*100;
+  var co2=(sL+totalCO2Rate*H)/vol*100;
   var pw=P===1?"person":"people";
   var cc=co2>=3?"#dc2626":co2>=2?"#ea580c":"#334155";
 
@@ -71,7 +87,7 @@ function render(){
   var th=[{l:"Discomfort (2%)",p:2,bg:"#fef9c3",bd:"#fde68a",tc:"#854d0e"},{l:"Unsafe (3%)",p:3,bg:"#fed7aa",bd:"#fdba74",tc:"#9a3412"},{l:"Dangerous (5%)",p:5,bg:"#fecaca",bd:"#fca5a5",tc:"#991b1b"}];
   var t='';
   for(var i=0;i<th.length;i++){
-    var x=th[i],tm=((x.p/100)*vol-sL)/(CO2_HR*P);
+    var x=th[i],tm=totalCO2Rate>0?((x.p/100)*vol-sL)/totalCO2Rate:Infinity;
     t+='<div style="flex:1;min-width:140px;padding:12px;border-radius:10px;text-align:center;background:'+x.bg+';border:1px solid '+x.bd+'">';
     t+='<div style="font-size:11px;font-weight:600;color:'+x.tc+';margin-bottom:4px">'+x.l+'</div>';
     t+='<div style="font-size:20px;font-weight:800;color:'+x.tc+'">'+fh(tm)+'</div></div>';
@@ -106,6 +122,13 @@ function render(){
   document.getElementById("scn").innerHTML=sc;
 }
 
+function adj(g,d){
+  var el=document.getElementById("ag"+g);
+  var v=Math.max(0,(parseInt(el.textContent)||0)+d);
+  el.textContent=v;
+  render();
+}
+
 function init(){
   var a=document.getElementById("app");
   var h='<h2 style="font-size:22px;font-weight:700;margin-bottom:4px">Mamad Air Quality Calculator</h2>';
@@ -117,7 +140,7 @@ function init(){
   h+='<p style="margin:0 0 12px"><b>How to use this calculator:</b></p>';
   h+='<ol style="margin:0;padding-left:20px">';
   h+='<li style="margin-bottom:6px"><b>Set your mamad\'s dimensions</b> — width and length (ceiling height is fixed at the standard 2.5m)</li>';
-  h+='<li style="margin-bottom:6px"><b>Set the number of people</b> sleeping inside</li>';
+  h+='<li style="margin-bottom:6px"><b>Set the number of people</b> sleeping inside, broken down by age group — children produce significantly less CO2 than adults</li>';
   h+='<li style="margin-bottom:6px"><b>Set how many hours</b> you plan to stay sealed</li>';
   h+='<li><b>Read the results</b> — see the current CO2 level, how long until each safety threshold is crossed, and how much opening the door helps</li>';
   h+='</ol>';
@@ -132,10 +155,21 @@ function init(){
   h+='<div style="flex:1;min-width:140px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Room width: <span id="wV" style="color:#7c3aed;font-size:18px">3</span>m</label><input type="range" id="rW" min="1.5" max="6" step="0.5" value="3" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1.5m</span><span>6m</span></div></div>';
   h+='<div style="flex:1;min-width:140px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Room length: <span id="lV" style="color:#7c3aed;font-size:18px">3</span>m</label><input type="range" id="rL" min="1.5" max="6" step="0.5" value="3" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1.5m</span><span>6m</span></div></div>';
   h+='</div>';
-  h+='<div style="display:flex;gap:20px;flex-wrap:wrap">';
-  h+='<div style="flex:1;min-width:140px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">People: <span id="pV" style="color:#2563eb;font-size:18px">4</span></label><input type="range" id="ppl" min="1" max="10" value="4" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1</span><span>10</span></div></div>';
-  h+='<div style="flex:1;min-width:140px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Hours sealed: <span id="hV" style="color:#2563eb;font-size:18px">10</span>h</label><input type="range" id="hrs" min="1" max="48" value="10" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1h</span><span>48h</span></div></div>';
-  h+='</div>';
+  h+='<div style="margin-bottom:12px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px">People sleeping: <span id="pV" style="color:#2563eb;font-size:18px">2</span></label>';
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">';
+  for(var gi=0;gi<AGE_GROUPS.length;gi++){
+    var ag=AGE_GROUPS[gi];
+    h+='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
+    h+='<div><div style="font-size:12px;font-weight:600;color:#334155">'+ag.label+'</div>';
+    h+='<div style="font-size:11px;color:#94a3b8">'+ag.sub+' &middot; '+ag.co2+' L/hr CO2</div></div>';
+    h+='<div style="display:flex;align-items:center;gap:6px">';
+    h+='<button onclick="adj('+gi+',-1)" style="width:26px;height:26px;border-radius:50%;border:1px solid #cbd5e1;background:#f8fafc;font-size:16px;cursor:pointer;line-height:1;color:#334155">−</button>';
+    h+='<span id="ag'+gi+'" style="min-width:20px;text-align:center;font-size:16px;font-weight:700;color:#2563eb">'+ag.default+'</span>';
+    h+='<button onclick="adj('+gi+',1)" style="width:26px;height:26px;border-radius:50%;border:1px solid #cbd5e1;background:#f8fafc;font-size:16px;cursor:pointer;line-height:1;color:#334155">+</button>';
+    h+='</div></div>';
+  }
+  h+='</div></div>';
+  h+='<div style="margin-bottom:0"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Hours sealed: <span id="hV" style="color:#2563eb;font-size:18px">10</span>h</label><input type="range" id="hrs" min="1" max="48" value="10" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1h</span><span>48h</span></div></div>';
   h+='<div id="ri" style="margin-top:12px;padding:10px;background:#ede9fe;border-radius:8px;font-size:13px;color:#5b21b6;display:flex;flex-wrap:wrap;gap:16px"></div>';
   h+='</div>';
 
@@ -172,9 +206,41 @@ function init(){
 
   h+='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px;font-family:monospace;font-size:13px;line-height:1.7;color:#334155">';
   h+='<b style="font-family:system-ui,sans-serif">CO2 at Time t</b><br>';
-  h+='CO2(t) = (CO2_start + 12 x People x Hours) / Volume x 100%<br>';
+  h+='CO2(t) = (CO2_start + TotalRate x Hours) / Volume x 100%<br>';
+  h+='TotalRate = sum of (count per age group x CO2 rate for that group)<br>';
   h+='CO2_start = 0.04% x Volume<br>';
-  h+='<span style="font-family:system-ui,sans-serif;font-size:12px;color:#64748b">Sleeping adult produces ~12 L/hr CO2, consumes ~15 L/hr O2</span></div>';
+  h+='<span style="font-family:system-ui,sans-serif;font-size:12px;color:#64748b">CO2 rates are based on sleeping metabolic rate (MET = 0.95) and typical body mass per age group (Persily &amp; de Jonge, 2017)</span></div>';
+
+  h+='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px;">';
+  h+='<b style="font-size:13px;font-weight:700;color:#334155">CO2 Production by Age Group (sleeping)</b>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">';
+  h+='<thead><tr style="background:#f8fafc;color:#64748b">';
+  h+='<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Age Group</th>';
+  h+='<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Typical body mass</th>';
+  h+='<th style="text-align:center;padding:6px 8px;border-bottom:1px solid #e2e8f0">CO2 (L/hr)</th>';
+  h+='<th style="text-align:center;padding:6px 8px;border-bottom:1px solid #e2e8f0">vs. adult</th>';
+  h+='</tr></thead><tbody>';
+  var ageRows=[
+    ["Infant (under 1 yr)","~8 kg","3","25%"],
+    ["Toddler (1–3 yrs)","~12 kg","5","40%"],
+    ["Child (3–6 yrs)","~18 kg","6","51%"],
+    ["Child (6–11 yrs)","~32 kg","8","67%"],
+    ["Pre-teen (11–16 yrs)","~57 kg","11","89%"],
+    ["Teen (16–21 yrs)","~72 kg","11.5","94%"],
+    ["Adult (21+ yrs)","~78 kg","12","100%"]
+  ];
+  for(var ri=0;ri<ageRows.length;ri++){
+    var rw=ageRows[ri],odd=ri%2===0;
+    h+='<tr style="background:'+(odd?'#fff':'#f8fafc')+'">';
+    h+='<td style="padding:6px 8px;color:#334155;font-weight:'+(ri===6?'700':'400')+'">'+rw[0]+'</td>';
+    h+='<td style="padding:6px 8px;color:#64748b">'+rw[1]+'</td>';
+    h+='<td style="padding:6px 8px;text-align:center;font-weight:600;color:#334155">'+rw[2]+'</td>';
+    h+='<td style="padding:6px 8px;text-align:center;color:#64748b">'+rw[3]+'</td>';
+    h+='</tr>';
+  }
+  h+='</tbody></table>';
+  h+='<div style="font-size:11px;color:#94a3b8;margin-top:8px">Source: Persily &amp; de Jonge (2017), scaled to MET = 0.95 (sleeping). Body masses from NHANES, sex-averaged.</div>';
+  h+='</div>';
 
   h+='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px;font-family:monospace;font-size:13px;line-height:1.7;color:#334155">';
   h+='<b style="font-family:system-ui,sans-serif">Time to Threshold</b><br>';
@@ -192,18 +258,25 @@ function init(){
   h+='<div style="font-size:12px;color:#64748b;line-height:1.6;margin-top:10px">';
   h+='<b style="color:#334155">Key Assumptions:</b><br>';
   h+='- Perfectly sealed room (worst case)<br>';
-  h+='- Sleeping metabolic rate (~0.8 MET)<br>';
+  h+='- Sleeping metabolic rate (MET = 0.95 across all ages)<br>';
+  h+='- CO2 rates per age group from Persily &amp; de Jonge (2017), scaled to sleeping MET<br>';
   h+='- Outdoor CO2 = 0.04% (400 ppm)<br>';
   h+='- Uniform mixing inside room<br>';
   h+='- Ceiling: 2.5m (standard Israeli residential)</div>';
-  h+='<div style="font-size:11px;color:#94a3b8;margin-top:8px">Sources: ASHRAE Fundamentals (metabolic rates), building ventilation research (door exchange).</div>';
+  h+='<div style="font-size:11px;color:#94a3b8;margin-top:8px;line-height:1.8">';
+  h+='<b style="color:#64748b">Sources:</b><br>';
+  h+='Persily &amp; de Jonge (2017). "Carbon dioxide generation rates for building occupants." <i>Indoor Air</i>, 27(5), 868–879. <a href="https://doi.org/10.1111/ina.12383" target="_blank" style="color:#94a3b8">doi:10.1111/ina.12383</a><br>';
+  h+='Fan et al. (2021). "Emission rate of carbon dioxide while sleeping." <i>Indoor Air</i>, 31(6), 2142–2157. <a href="https://doi.org/10.1111/ina.12911" target="_blank" style="color:#94a3b8">doi:10.1111/ina.12911</a><br>';
+  h+='Wu et al. (2023). "Carbon dioxide generation rates for children and adolescents." <i>Building and Environment</i>, 237, 110310. <a href="https://doi.org/10.1016/j.buildenv.2023.110310" target="_blank" style="color:#94a3b8">doi:10.1016/j.buildenv.2023.110310</a><br>';
+  h+='Gao et al. (2023). "Metabolic rate in children and adolescents." <i>Building and Environment</i>, 244, 110804. <a href="https://doi.org/10.1016/j.buildenv.2023.110804" target="_blank" style="color:#94a3b8">doi:10.1016/j.buildenv.2023.110804</a><br>';
+  h+='Ainsworth et al. Compendium of Physical Activities (sleeping MET = 0.95). ASHRAE Fundamentals (door exchange).';
+  h+='</div>';
   h+='</div>';
 
   a.innerHTML=h;
 
   document.getElementById("rW").addEventListener("input",render);
   document.getElementById("rL").addEventListener("input",render);
-  document.getElementById("ppl").addEventListener("input",render);
   document.getElementById("hrs").addEventListener("input",render);
   render();
 }
