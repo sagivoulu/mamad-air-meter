@@ -1,41 +1,149 @@
 <style>body{margin:0;min-height:100vh;background:linear-gradient(160deg,#e8f0fe 0%,#f1f5f9 100%);background-attachment:fixed}</style>
 <div id="app" style="max-width:820px;margin:0 auto;font-family:system-ui,sans-serif;color:#1e293b;padding:16px"></div>
 <script>
+// ── State ─────────────────────────────────────────────────────────────────────
+var lang = 'en';
+var stateW = '3', stateL = '3', stateHrs = '10', stateCounts = null;
+
+// ── Translations ──────────────────────────────────────────────────────────────
+var T = {
+  en: {
+    title: 'Mamad Air Quality Calculator',
+    subtitle: 'Ceiling: 2.5m | No wind | Sleeping adults | Worst-case sealed room',
+    builtBy: 'Built by',
+    whatIsThis: 'What is this?',
+    intro1: 'In Israel, many homes have a <b>mamad (ממ"ד)</b> — a reinforced safe room. During a missile alert, you seal the door and shelter inside. But with the door sealed, the room is essentially airtight: no fresh air comes in, and everyone inside slowly raises the CO2 level just by breathing.',
+    intro2: 'This raises a practical question: <b>is it safe to sleep through the night in a sealed mamad?</b> CO2 buildup causes headaches, drowsiness, and at high enough levels becomes dangerous — but how quickly does that actually happen?',
+    howToUse: 'How to use this calculator:',
+    step1: '<b>Set your mamad\'s dimensions</b> — width and length (ceiling height is fixed at the standard 2.5m)',
+    step2: '<b>Set the number of people</b> sleeping inside, broken down by age group — children produce significantly less CO2 than adults',
+    step3: '<b>Set how many hours</b> you plan to stay sealed',
+    step4: '<b>Read the results</b> — see the current CO2 level, how long until each safety threshold is crossed, and how much opening the door helps',
+    disclaimerLabel: 'Disclaimer:',
+    disclaimerText: 'This is a hobby project built out of personal curiosity. The calculations are based on publicly available research and reasonable assumptions, but they have not been scientifically validated. Do not rely on this tool for life-safety decisions. When in doubt, ventilate.',
+    roomWidth: 'Room width:', roomLength: 'Room length:',
+    floorArea: 'Floor area:', peopleSleeping: 'People sleeping:', hoursSealed: 'Hours sealed:',
+    roomLabel: 'Room:', volumeLabel: 'Volume:', floorLabel: 'Floor:',
+    co2After: function(H,P){ return 'CO2 after '+H+'h with '+P+' '+(P===1?'person':'people')+':'; },
+    barUnsafe: '3% Unsafe', barDanger: '5% Danger',
+    discomfort: 'Discomfort (2%)', threshUnsafe: 'Unsafe (3%)', threshDangerous: 'Dangerous (5%)',
+    doorSectionTitle: 'What happens when you open the door?',
+    airExchanged: '% air exchanged', fullReset: 'FULL RESET',
+    before: 'Before', after: 'After',
+    dropsBy: function(dr,pd){ return 'Drops by '+dr+'% ('+pd+'% toward fresh)'; },
+    statusLegend: 'Status Legend',
+    tldrLabel: 'TL;DR:', tldrText: 'A quick open/close barely helps (~4% exchange). You need the door open for <b>at least 5 minutes</b> for a significant difference, and <b>~10 minutes</b> for a near-complete reset.',
+    tipLabel: 'Tip:', tipText: 'These are worst-case (perfectly sealed, no wind). Real mamads leak air, and waving a towel near the open door speeds exchange dramatically.',
+    calcTitle: 'How Are These Numbers Calculated?',
+    safe: 'Safe', ok: 'OK', caution: 'Caution', unsafe: 'Unsafe', danger: 'Danger',
+    hr: 'h', min: 'm',
+    infant: 'Infant',    infantAge: 'under 1 yr',
+    toddler: 'Toddler',  toddlerAge: '1–3 yrs',
+    child36: 'Child',    child36Age: '3–6 yrs',
+    child611: 'Child',   child611Age: '6–11 yrs',
+    preteen: 'Pre-teen', preteenAge: '11–16 yrs',
+    teen: 'Teen',        teenAge: '16–21 yrs',
+    adult: 'Adult',      adultAge: '21+ yrs',
+    door1: 'Quick open/close (~5 sec)', door1desc: 'Door sweep + person walking through',
+    door2: 'Open 1 minute',             door2desc: 'Some buoyancy-driven exchange',
+    door3: 'Open 2 minutes',            door3desc: 'Meaningful air exchange',
+    door4: 'Open 5 minutes',            door4desc: 'Substantial exchange',
+    door5: 'Open 10 minutes',           door5desc: 'Near-complete exchange',
+    legR1: 'CO2 below 1%',  legD1: 'Normal indoor air quality. No symptoms. Equivalent to a well-ventilated room.',
+    legR2: 'CO2 1-2%',      legD2: 'Stuffy but harmless. Slight drowsiness possible. No health risk.',
+    legR3: 'CO2 2-3%',      legD3: 'Headaches, drowsiness, reduced concentration. Ventilate soon.',
+    legR4: 'CO2 3-5%',      legD4: 'Dizziness, elevated heart rate, difficulty concentrating. Ventilate immediately.',
+    legR5: 'CO2 above 5%',  legD5: 'Nausea, confusion, impaired consciousness. Life-threatening. Leave the room.'
+  },
+  he: {
+    title: 'חנוק לי בממ"ד',
+    subtitle: 'תקרה: 2.5מ׳ | ללא רוח | מבוגרים ישנים | תרחיש גרוע ביותר',
+    builtBy: 'פותח על ידי',
+    whatIsThis: 'מה זה?',
+    intro1: 'בזמן מלחמה, אנשים רוצים פשוט לישון בממ"ד (הלוואי עלי דירה עם ממ"ד, נכתב מתוך המקלט 😂) ולא להתעורר לכל אזעקה. אבל עם הדלת סגורה, החדר אטום — ורמת ה-CO2 עולה בהדרגה רק מנשימה.',
+    intro2: 'השאלה היא: <b>כמה זמן אפשר להישאר סגורים בבטחה?</b> המחשבון הזה עונה על זה — לפי גודל הממ"ד, מספר הישנים וגילם.',
+    howToUse: 'איך משתמשים:',
+    step1: '<b>הגדירו את מידות הממ"ד</b> — רוחב ואורך (גובה תקרה קבוע ב-2.5 מ׳)',
+    step2: '<b>הגדירו את מספר הישנים</b>, לפי קבוצת גיל — ילדים מייצרים פחות CO2 ממבוגרים',
+    step3: '<b>הגדירו כמה שעות</b> אתם מתכוונים להישאר סגורים',
+    step4: '<b>קראו את התוצאות</b> — רמת ה-CO2 הנוכחית, כמה זמן עד שחוצים כל סף בטיחות, וכמה פתיחת הדלת עוזרת',
+    disclaimerLabel: 'דיסקליימר:',
+    disclaimerText: 'זה פרויקט תחביב מתוך סקרנות אישית. החישובים מבוססים על מחקר זמין לציבור והנחות סבירות, אך לא אומתו מדעית. אל תסמכו על כלי זה להחלטות בטיחות. במקרה של ספק — אווררו.',
+    roomWidth: 'רוחב החדר:', roomLength: 'אורך החדר:',
+    floorArea: 'שטח חדר:', peopleSleeping: 'אנשים ישנים:', hoursSealed: 'שעות סגור:',
+    roomLabel: 'חדר:', volumeLabel: 'נפח:', floorLabel: 'רצפה:',
+    co2After: function(H,P){ return 'CO2 אחרי '+H+' שע׳ עם '+P+' '+(P===1?'אדם':'אנשים')+':'; },
+    barUnsafe: '3% לא בטוח', barDanger: '5% מסוכן',
+    discomfort: 'אי נוחות (2%)', threshUnsafe: 'לא בטוח (3%)', threshDangerous: 'מסוכן (5%)',
+    doorSectionTitle: 'מה קורה כשפותחים את הדלת?',
+    airExchanged: '% אוויר הוחלף', fullReset: 'איפוס מלא',
+    before: 'לפני', after: 'אחרי',
+    dropsBy: function(dr,pd){ return 'יורד ב-'+dr+'% ('+pd+'% לעבר אוויר נקי)'; },
+    statusLegend: 'מקרא סטטוס',
+    tldrLabel: 'תכלס:', tldrText: 'פתיחה וסגירה מהירה כמעט לא עוזרת (~4% החלפה). צריך שהדלת תהיה פתוחה <b>לפחות 5 דקות</b> כדי שיהיה הבדל, ו<b>~10 דקות</b> לאיפוס כמעט מלא.',
+    tipLabel: 'טיפ:', tipText: 'אלה תרחישי הגרוע ביותר (חדר אטום לחלוטין, ללא רוח). ממ"דים אמיתיים דולפים מעט אוויר, ונפנוף מגבת ליד הדלת הפתוחה מאיץ את החילוף דרמטית.',
+    calcTitle: 'איך מחושבים המספרים האלה?',
+    safe: 'בטוח', ok: 'סביר', caution: 'זהירות', unsafe: 'לא בטוח', danger: 'מסוכן',
+    hr: 'ש׳', min: 'ד׳',
+    infant: 'תינוק',      infantAge: 'מתחת לשנה',
+    toddler: 'פעוט',      toddlerAge: '1–3 שנים',
+    child36: 'ילד',       child36Age: '3–6 שנים',
+    child611: 'ילד',      child611Age: '6–11 שנים',
+    preteen: 'גיל ביניים',preteenAge: '11–16 שנים',
+    teen: 'נוער',         teenAge: '16–21 שנים',
+    adult: 'מבוגר',       adultAge: '+21 שנה',
+    door1: 'פתיחה וסגירה מהירה (~5 שניות)', door1desc: 'מעבר דלת + אדם עובר',
+    door2: 'פתוח דקה אחת',                  door2desc: 'החלפת אוויר קלה',
+    door3: 'פתוח 2 דקות',                   door3desc: 'החלפת אוויר משמעותית',
+    door4: 'פתוח 5 דקות',                   door4desc: 'החלפה ניכרת',
+    door5: 'פתוח 10 דקות',                  door5desc: 'החלפה כמעט מלאה',
+    legR1: 'CO2 מתחת ל-1%', legD1: 'איכות אוויר תקינה. ללא תסמינים. שווה ערך לחדר מאוורר היטב.',
+    legR2: 'CO2 1-2%',       legD2: 'מחניק אך לא מסוכן. ישנוניות קלה אפשרית. אין סיכון בריאותי.',
+    legR3: 'CO2 2-3%',       legD3: 'כאבי ראש, ישנוניות, ריכוז מופחת. אווררו בהקדם.',
+    legR4: 'CO2 3-5%',       legD4: 'סחרחורת, דופק מוגבר, קושי בריכוז. אווררו מיד.',
+    legR5: 'CO2 מעל 5%',     legD5: 'בחילה, בלבול, פגיעה בהכרה. מסכן חיים. צאו מהחדר.'
+  }
+};
+
+function t(k){ return T[lang][k]; }
+
+// ── Data ──────────────────────────────────────────────────────────────────────
 var CEIL = 2.5, START_PCT = 0.04;
 
 var AGE_GROUPS = [
-  {label:"Infant",    sub:"under 1 yr",  co2:3,    default:0},
-  {label:"Toddler",   sub:"1–3 yrs",     co2:5,    default:0},
-  {label:"Child",     sub:"3–6 yrs",     co2:6,    default:0},
-  {label:"Child",     sub:"6–11 yrs",    co2:8,    default:0},
-  {label:"Pre-teen",  sub:"11–16 yrs",   co2:11,   default:0},
-  {label:"Teen",      sub:"16–21 yrs",   co2:11.5, default:0},
-  {label:"Adult",     sub:"21+ yrs",     co2:12,   default:2}
+  {lk:'infant',   sk:'infantAge',  co2:3,    default:0},
+  {lk:'toddler',  sk:'toddlerAge', co2:5,    default:0},
+  {lk:'child36',  sk:'child36Age', co2:6,    default:0},
+  {lk:'child611', sk:'child611Age',co2:8,    default:0},
+  {lk:'preteen',  sk:'preteenAge', co2:11,   default:0},
+  {lk:'teen',     sk:'teenAge',    co2:11.5, default:0},
+  {lk:'adult',    sk:'adultAge',   co2:12,   default:2}
 ];
 
 var DOORS = [
-  {label:"Quick open/close (~5 sec)",exchange:0.04,desc:"Door sweep + person walking through"},
-  {label:"Open 1 minute",exchange:0.15,desc:"Some buoyancy-driven exchange"},
-  {label:"Open 2 minutes",exchange:0.27,desc:"Meaningful air exchange"},
-  {label:"Open 5 minutes",exchange:0.55,desc:"Substantial exchange"},
-  {label:"Open 10 minutes",exchange:0.85,desc:"Near-complete exchange"}
+  {lk:'door1',dk:'door1desc',exchange:0.04},
+  {lk:'door2',dk:'door2desc',exchange:0.15},
+  {lk:'door3',dk:'door3desc',exchange:0.27},
+  {lk:'door4',dk:'door4desc',exchange:0.55},
+  {lk:'door5',dk:'door5desc',exchange:0.85}
 ];
 
 var LEGEND = [
-  {bg:"#dcfce7",t:"#166534",l:"Safe",r:"CO2 below 1%",d:"Normal indoor air quality. No symptoms. Equivalent to a well-ventilated room."},
-  {bg:"#fef9c3",t:"#854d0e",l:"OK",r:"CO2 1-2%",d:"Stuffy but harmless. Slight drowsiness possible. No health risk."},
-  {bg:"#fed7aa",t:"#9a3412",l:"Caution",r:"CO2 2-3%",d:"Headaches, drowsiness, reduced concentration. Ventilate soon."},
-  {bg:"#fecaca",t:"#991b1b",l:"Unsafe",r:"CO2 3-5%",d:"Dizziness, elevated heart rate, difficulty concentrating. Ventilate immediately."},
-  {bg:"#991b1b",t:"#fff",l:"Danger",r:"CO2 above 5%",d:"Nausea, confusion, impaired consciousness. Life-threatening. Leave the room."}
+  {bg:'#dcfce7',tc:'#166534',lk:'safe',   rk:'legR1',dk:'legD1'},
+  {bg:'#fef9c3',tc:'#854d0e',lk:'ok',     rk:'legR2',dk:'legD2'},
+  {bg:'#fed7aa',tc:'#9a3412',lk:'caution',rk:'legR3',dk:'legD3'},
+  {bg:'#fecaca',tc:'#991b1b',lk:'unsafe', rk:'legR4',dk:'legD4'},
+  {bg:'#991b1b',tc:'#fff',   lk:'danger', rk:'legR5',dk:'legD5'}
 ];
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function badge(co2){
   var bg,tc,lb;
-  if(co2<1){bg="#dcfce7";tc="#166534";lb="Safe";}
-  else if(co2<2){bg="#fef9c3";tc="#854d0e";lb="OK";}
-  else if(co2<3){bg="#fed7aa";tc="#9a3412";lb="Caution";}
-  else if(co2<5){bg="#fecaca";tc="#991b1b";lb="Unsafe";}
-  else{bg="#991b1b";tc="#fff";lb="Danger";}
+  if(co2<1){bg="#dcfce7";tc="#166534";lb=t('safe');}
+  else if(co2<2){bg="#fef9c3";tc="#854d0e";lb=t('ok');}
+  else if(co2<3){bg="#fed7aa";tc="#9a3412";lb=t('caution');}
+  else if(co2<5){bg="#fecaca";tc="#991b1b";lb=t('unsafe');}
+  else{bg="#991b1b";tc="#fff";lb=t('danger');}
   return '<span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap;display:inline-block;background:'+bg+';color:'+tc+'">'+lb+'</span>';
 }
 
@@ -47,23 +155,28 @@ function bar(val,max,color){
 function bcol(co2){return co2>=3?"#ef4444":co2>=2?"#f97316":"#22c55e";}
 
 function fh(h){
-  if(h<1)return Math.round(h*60)+"m";
+  if(h===Infinity)return '∞';
+  if(h<1)return Math.round(h*60)+t('min');
   var hrs=Math.floor(h),mins=Math.round((h-hrs)*60);
-  return mins>0?hrs+"h "+mins+"m":hrs+"h";
+  return mins>0?hrs+t('hr')+' '+mins+t('min'):hrs+t('hr');
 }
 
+// ── Render ────────────────────────────────────────────────────────────────────
 function render(){
   var W=parseFloat(document.getElementById("rW").value);
   var L=parseFloat(document.getElementById("rL").value);
   var H=parseInt(document.getElementById("hrs").value);
+  stateW=String(W); stateL=String(L); stateHrs=String(H);
   document.getElementById("wV").textContent=W;
   document.getElementById("lV").textContent=L;
   document.getElementById("hV").textContent=H;
   document.getElementById("sqm").textContent=(W*L).toFixed(1).replace(/\.0$/,"");
 
   var P=0, totalCO2Rate=0;
+  stateCounts=[];
   for(var g=0;g<AGE_GROUPS.length;g++){
     var cnt=parseInt(document.getElementById("ag"+g).textContent)||0;
+    stateCounts.push(cnt);
     P+=cnt;
     totalCO2Rate+=cnt*AGE_GROUPS[g].co2;
   }
@@ -72,30 +185,37 @@ function render(){
   var vol=W*L*CEIL*1000;
   var sL=(START_PCT/100)*vol;
   var co2=(sL+totalCO2Rate*H)/vol*100;
-  var pw=P===1?"person":"people";
   var cc=co2>=3?"#dc2626":co2>=2?"#ea580c":"#334155";
 
-  document.getElementById("ri").innerHTML='<span><b>Room:</b> '+W+' x '+L+' x '+CEIL+'m</span><span><b>Volume:</b> '+(vol/1000).toFixed(1)+' m3 ('+vol.toLocaleString()+' L)</span><span><b>Floor:</b> '+(W*L).toFixed(1)+' m2</span>';
+  document.getElementById("ri").innerHTML=
+    '<span><b>'+t('roomLabel')+'</b> '+W+' x '+L+' x '+CEIL+'m</span>'+
+    '<span><b>'+t('volumeLabel')+'</b> '+(vol/1000).toFixed(1)+' m³ ('+vol.toLocaleString()+' L)</span>'+
+    '<span><b>'+t('floorLabel')+'</b> '+(W*L).toFixed(1)+' m²</span>';
 
   var o='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">';
-  o+='<span style="font-size:14px;font-weight:600">CO2 after '+H+'h with '+P+' '+pw+':</span>';
+  o+='<span style="font-size:14px;font-weight:600">'+t('co2After')(H,P)+'</span>';
   o+='<span style="font-size:24px;font-weight:800;color:'+cc+'">'+co2.toFixed(2)+'%</span>';
   o+=badge(co2)+'</div>';
   o+=bar(co2,6,bcol(co2));
-  o+='<div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-top:2px"><span>0%</span><span>1%</span><span>2%</span><span>3% Unsafe</span><span>5% Danger</span><span>6%</span></div>';
+  o+='<div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-top:2px"><span>0%</span><span>1%</span><span>2%</span><span>'+t('barUnsafe')+'</span><span>'+t('barDanger')+'</span><span>6%</span></div>';
   document.getElementById("cur").innerHTML=o;
 
-  var th=[{l:"Discomfort (2%)",p:2,bg:"#fef9c3",bd:"#fde68a",tc:"#854d0e"},{l:"Unsafe (3%)",p:3,bg:"#fed7aa",bd:"#fdba74",tc:"#9a3412"},{l:"Dangerous (5%)",p:5,bg:"#fecaca",bd:"#fca5a5",tc:"#991b1b"}];
-  var t='';
+  var th=[
+    {lk:'discomfort',    p:2,bg:"#fef9c3",bd:"#fde68a",tc:"#854d0e"},
+    {lk:'threshUnsafe',  p:3,bg:"#fed7aa",bd:"#fdba74",tc:"#9a3412"},
+    {lk:'threshDangerous',p:5,bg:"#fecaca",bd:"#fca5a5",tc:"#991b1b"}
+  ];
+  var tv='';
   for(var i=0;i<th.length;i++){
     var x=th[i],tm=totalCO2Rate>0?((x.p/100)*vol-sL)/totalCO2Rate:Infinity;
-    t+='<div style="flex:1;min-width:140px;padding:12px;border-radius:10px;text-align:center;background:'+x.bg+';border:1px solid '+x.bd+'">';
-    t+='<div style="font-size:11px;font-weight:600;color:'+x.tc+';margin-bottom:4px">'+x.l+'</div>';
-    t+='<div style="font-size:20px;font-weight:800;color:'+x.tc+'">'+fh(tm)+'</div></div>';
+    tv+='<div style="flex:1;min-width:140px;padding:12px;border-radius:10px;text-align:center;background:'+x.bg+';border:1px solid '+x.bd+'">';
+    tv+='<div style="font-size:11px;font-weight:600;color:'+x.tc+';margin-bottom:4px">'+t(x.lk)+'</div>';
+    tv+='<div style="font-size:20px;font-weight:800;color:'+x.tc+'">'+fh(tm)+'</div></div>';
   }
-  document.getElementById("thr").innerHTML=t;
+  document.getElementById("thr").innerHTML=tv;
 
   var fr=0.04,sc='';
+  var inlineEnd=lang==='he'?'left':'right';
   for(var j=0;j<DOORS.length;j++){
     var d=DOORS[j];
     var af=fr+(co2-fr)*(1-d.exchange);
@@ -103,26 +223,27 @@ function render(){
     var pd=co2>0.04?(dr/(co2-fr))*100:0;
     var rs=af<0.5;
     sc+='<div style="padding:14px;background:#fff;border-radius:10px;margin-bottom:8px;position:relative;border:'+(rs?'2px solid #22c55e':'1px solid #e2e8f0')+'">';
-    if(rs)sc+='<span style="position:absolute;top:-8px;right:12px;background:#22c55e;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px">FULL RESET</span>';
+    if(rs)sc+='<span style="position:absolute;top:-8px;'+inlineEnd+':12px;background:#22c55e;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px">'+t('fullReset')+'</span>';
     sc+='<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">';
-    sc+='<span style="font-size:13px;font-weight:700;min-width:200px">'+d.label+'</span>';
-    sc+='<span style="font-size:12px;color:#64748b">~'+Math.round(d.exchange*100)+'% air exchanged</span></div>';
+    sc+='<span style="font-size:13px;font-weight:700;min-width:200px">'+t(d.lk)+'</span>';
+    sc+='<span style="font-size:12px;color:#64748b">~'+Math.round(d.exchange*100)+t('airExchanged')+'</span></div>';
     sc+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">';
-    sc+='<span style="font-size:13px;min-width:50px;color:#94a3b8">Before</span>';
+    sc+='<span style="font-size:13px;min-width:50px;color:#94a3b8">'+t('before')+'</span>';
     sc+='<div style="flex:1">'+bar(co2,6,"#94a3b8")+'</div>';
-    sc+='<span style="font-size:13px;font-weight:600;min-width:55px;text-align:right">'+co2.toFixed(2)+'%</span>';
+    sc+='<span style="font-size:13px;font-weight:600;min-width:55px;text-align:'+inlineEnd+'">'+co2.toFixed(2)+'%</span>';
     sc+=badge(co2)+'</div>';
     sc+='<div style="display:flex;align-items:center;gap:10px">';
-    sc+='<span style="font-size:13px;min-width:50px;color:#2563eb;font-weight:600">After</span>';
+    sc+='<span style="font-size:13px;min-width:50px;color:#2563eb;font-weight:600">'+t('after')+'</span>';
     sc+='<div style="flex:1">'+bar(af,6,bcol(af))+'</div>';
-    sc+='<span style="font-size:13px;font-weight:700;min-width:55px;text-align:right;color:#2563eb">'+af.toFixed(2)+'%</span>';
+    sc+='<span style="font-size:13px;font-weight:700;min-width:55px;text-align:'+inlineEnd+';color:#2563eb">'+af.toFixed(2)+'%</span>';
     sc+=badge(af)+'</div>';
-    sc+='<div style="font-size:11px;color:#64748b;margin-top:4px">'+d.desc+' | Drops by '+dr.toFixed(2)+'% ('+Math.round(pd)+'% toward fresh)</div>';
+    sc+='<div style="font-size:11px;color:#64748b;margin-top:4px">'+t(d.dk)+' | '+t('dropsBy')(dr.toFixed(2),Math.round(pd))+'</div>';
     sc+='</div>';
   }
   document.getElementById("scn").innerHTML=sc;
 }
 
+// ── adj ───────────────────────────────────────────────────────────────────────
 function adj(g,d){
   var el=document.getElementById("ag"+g);
   var v=Math.max(0,(parseInt(el.textContent)||0)+d);
@@ -130,77 +251,103 @@ function adj(g,d){
   render();
 }
 
+// ── setLang ───────────────────────────────────────────────────────────────────
+function setLang(l){
+  lang=l;
+  init();
+}
+
+// ── init ──────────────────────────────────────────────────────────────────────
 function init(){
   var a=document.getElementById("app");
-  var h='<div style="text-align:right;font-size:12px;color:#64748b;margin-bottom:8px">Built by <a href="https://github.com/sagivoulu/mamad-air-meter" target="_blank" style="color:#2563eb;font-weight:600">Sagiv Oulu</a> &middot; <a href="https://github.com/sagivoulu/mamad-air-meter" target="_blank" style="color:#2563eb">GitHub</a></div>';
-  h+='<h2 style="font-size:22px;font-weight:700;margin-bottom:4px">Mamad Air Quality Calculator</h2>';
-  h+='<p style="font-size:13px;color:#64748b;margin-bottom:16px">Ceiling: 2.5m | No wind | Sleeping adults | Worst-case sealed room</p>';
+  var rtl=lang==='he';
+  a.dir=rtl?'rtl':'ltr';
 
+  var initCounts=stateCounts||AGE_GROUPS.map(function(ag){return ag.default;});
+  var totalDefault=initCounts.reduce(function(a,b){return a+b;},0);
+  var sqmVal=(parseFloat(stateW)*parseFloat(stateL)).toFixed(1).replace(/\.0$/,'');
+
+  // language toggle + credit
+  var h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">';
+  h+='<div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #e2e8f0;border-radius:99px;padding:4px 10px;font-size:13px">';
+  h+='<span onclick="setLang(\'he\')" style="display:flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;cursor:pointer;font-weight:'+(lang==='he'?'700':'400')+';color:'+(lang==='he'?'#1e293b':'#94a3b8')+';background:'+(lang==='he'?'#eff6ff':'transparent')+'">🇮🇱 עב</span>';
+  h+='<span style="color:#e2e8f0">|</span>';
+  h+='<span onclick="setLang(\'en\')" style="display:flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;cursor:pointer;font-weight:'+(lang==='en'?'700':'400')+';color:'+(lang==='en'?'#1e293b':'#94a3b8')+';background:'+(lang==='en'?'#eff6ff':'transparent')+'">🇬🇧 EN</span>';
+  h+='</div>';
+  h+='<div style="font-size:12px;color:#64748b">'+t('builtBy')+' <a href="https://github.com/sagivoulu/mamad-air-meter" target="_blank" style="color:#2563eb;font-weight:600">Sagiv Oulu</a> &middot; <a href="https://github.com/sagivoulu/mamad-air-meter" target="_blank" style="color:#2563eb">GitHub</a></div>';
+  h+='</div>';
+
+  h+='<h2 style="font-size:22px;font-weight:700;margin-bottom:4px">'+t('title')+'</h2>';
+  h+='<p style="font-size:13px;color:#64748b;margin-bottom:16px">'+t('subtitle')+'</p>';
+
+  // intro
   h+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:18px;margin-bottom:24px;font-size:14px;line-height:1.7;color:#1e3a5f">';
-  h+='<p style="margin:0 0 10px"><b>What is this?</b> In Israel, many homes have a <b>mamad (ממ"ד)</b> — a reinforced safe room. During a missile alert, you seal the door and shelter inside. But with the door sealed, the room is essentially airtight: no fresh air comes in, and everyone inside slowly raises the CO2 level just by breathing.</p>';
-  h+='<p style="margin:0 0 10px">This raises a practical question: <b>is it safe to sleep through the night in a sealed mamad?</b> CO2 buildup causes headaches, drowsiness, and at high enough levels becomes dangerous — but how quickly does that actually happen?</p>';
-  h+='<p style="margin:0 0 12px"><b>How to use this calculator:</b></p>';
-  h+='<ol style="margin:0;padding-left:20px">';
-  h+='<li style="margin-bottom:6px"><b>Set your mamad\'s dimensions</b> — width and length (ceiling height is fixed at the standard 2.5m)</li>';
-  h+='<li style="margin-bottom:6px"><b>Set the number of people</b> sleeping inside, broken down by age group — children produce significantly less CO2 than adults</li>';
-  h+='<li style="margin-bottom:6px"><b>Set how many hours</b> you plan to stay sealed</li>';
-  h+='<li><b>Read the results</b> — see the current CO2 level, how long until each safety threshold is crossed, and how much opening the door helps</li>';
-  h+='</ol>';
-  h+='</div>';
+  h+='<p style="margin:0 0 10px"><b>'+t('whatIsThis')+'</b> '+t('intro1')+'</p>';
+  h+='<p style="margin:0 0 10px">'+t('intro2')+'</p>';
+  h+='<p style="margin:0 0 12px"><b>'+t('howToUse')+'</b></p>';
+  h+='<ol style="margin:0;padding-'+(rtl?'right':'left')+':20px">';
+  h+='<li style="margin-bottom:6px">'+t('step1')+'</li>';
+  h+='<li style="margin-bottom:6px">'+t('step2')+'</li>';
+  h+='<li style="margin-bottom:6px">'+t('step3')+'</li>';
+  h+='<li>'+t('step4')+'</li>';
+  h+='</ol></div>';
 
+  // disclaimer
   h+='<div style="background:#fefce8;border:1px solid #fde047;border-radius:10px;padding:14px;margin-bottom:20px;font-size:12px;line-height:1.6;color:#713f12">';
-  h+='<b>Disclaimer:</b> This is a hobby project built out of personal curiosity. The calculations are based on publicly available research and reasonable assumptions, but they have not been scientifically validated. Do not rely on this tool for life-safety decisions. When in doubt, ventilate.';
+  h+='<b>'+t('disclaimerLabel')+'</b> '+t('disclaimerText');
   h+='</div>';
 
+  // controls
   h+='<div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:16px;margin-bottom:20px">';
   h+='<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:8px">';
-  h+='<div style="flex:1;min-width:140px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Room width: <span id="wV" style="color:#7c3aed;font-size:18px">3</span>m</label><input type="range" id="rW" min="1.5" max="6" step="0.5" value="3" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1.5m</span><span>6m</span></div></div>';
-  h+='<div style="flex:1;min-width:140px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Room length: <span id="lV" style="color:#7c3aed;font-size:18px">3</span>m</label><input type="range" id="rL" min="1.5" max="6" step="0.5" value="3" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1.5m</span><span>6m</span></div></div>';
+  h+='<div style="flex:1;min-width:140px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">'+t('roomWidth')+' <span id="wV" style="color:#7c3aed;font-size:18px">'+stateW+'</span>m</label><input type="range" id="rW" min="1.5" max="6" step="0.5" value="'+stateW+'" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1.5m</span><span>6m</span></div></div>';
+  h+='<div style="flex:1;min-width:140px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">'+t('roomLength')+' <span id="lV" style="color:#7c3aed;font-size:18px">'+stateL+'</span>m</label><input type="range" id="rL" min="1.5" max="6" step="0.5" value="'+stateL+'" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1.5m</span><span>6m</span></div></div>';
   h+='</div>';
-  h+='<div style="margin-bottom:12px;font-size:13px;color:#5b21b6;font-weight:600">Floor area: <span id="sqm" style="font-size:18px">9</span> m²</div>';
-  h+='<div style="margin-bottom:12px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px">People sleeping: <span id="pV" style="color:#2563eb;font-size:18px">2</span></label>';
+  h+='<div style="margin-bottom:12px;font-size:13px;color:#5b21b6;font-weight:600">'+t('floorArea')+' <span id="sqm" style="font-size:18px">'+sqmVal+'</span> m²</div>';
+  h+='<div style="margin-bottom:12px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:8px">'+t('peopleSleeping')+' <span id="pV" style="color:#2563eb;font-size:18px">'+totalDefault+'</span></label>';
   h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">';
   for(var gi=0;gi<AGE_GROUPS.length;gi++){
     var ag=AGE_GROUPS[gi];
+    var cnt=initCounts[gi];
     h+='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
-    h+='<div><div style="font-size:12px;font-weight:600;color:#334155">'+ag.label+'</div>';
-    h+='<div style="font-size:11px;color:#94a3b8">'+ag.sub+' &middot; '+ag.co2+' L/hr CO2</div></div>';
+    h+='<div><div style="font-size:12px;font-weight:600;color:#334155">'+t(ag.lk)+'</div>';
+    h+='<div style="font-size:11px;color:#94a3b8">'+t(ag.sk)+' &middot; '+ag.co2+' L/hr CO2</div></div>';
     h+='<div style="display:flex;align-items:center;gap:6px">';
     h+='<button onclick="adj('+gi+',-1)" style="width:26px;height:26px;border-radius:50%;border:1px solid #cbd5e1;background:#f8fafc;font-size:16px;cursor:pointer;line-height:1;color:#334155">−</button>';
-    h+='<span id="ag'+gi+'" style="min-width:20px;text-align:center;font-size:16px;font-weight:700;color:#2563eb">'+ag.default+'</span>';
+    h+='<span id="ag'+gi+'" style="min-width:20px;text-align:center;font-size:16px;font-weight:700;color:#2563eb">'+cnt+'</span>';
     h+='<button onclick="adj('+gi+',1)" style="width:26px;height:26px;border-radius:50%;border:1px solid #cbd5e1;background:#f8fafc;font-size:16px;cursor:pointer;line-height:1;color:#334155">+</button>';
     h+='</div></div>';
   }
   h+='</div></div>';
-  h+='<div style="margin-bottom:0"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Hours sealed: <span id="hV" style="color:#2563eb;font-size:18px">10</span>h</label><input type="range" id="hrs" min="1" max="48" value="10" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1h</span><span>48h</span></div></div>';
+  h+='<div style="margin-bottom:0"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">'+t('hoursSealed')+' <span id="hV" style="color:#2563eb;font-size:18px">'+stateHrs+'</span>'+t('hr')+'</label><input type="range" id="hrs" min="1" max="48" value="'+stateHrs+'" style="width:100%"><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8"><span>1'+t('hr')+'</span><span>48'+t('hr')+'</span></div></div>';
   h+='<div id="ri" style="margin-top:12px;padding:10px;background:#ede9fe;border-radius:8px;font-size:13px;color:#5b21b6;display:flex;flex-wrap:wrap;gap:16px"></div>';
   h+='</div>';
 
   h+='<div id="cur" style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:16px;margin-bottom:12px"></div>';
   h+='<div id="thr" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px"></div>';
 
-  h+='<h3 style="font-size:16px;font-weight:700;margin:20px 0 10px">What happens when you open the door?</h3>';
+  h+='<h3 style="font-size:16px;font-weight:700;margin:20px 0 10px">'+t('doorSectionTitle')+'</h3>';
   h+='<div id="scn"></div>';
 
-  // Legend
+  // legend
   h+='<div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:16px;margin-top:20px">';
-  h+='<h4 style="font-size:14px;font-weight:700;margin:0 0 10px">Status Legend</h4>';
+  h+='<h4 style="font-size:14px;font-weight:700;margin:0 0 10px">'+t('statusLegend')+'</h4>';
   for(var k=0;k<LEGEND.length;k++){
     var lg=LEGEND[k];
     h+='<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">';
-    h+='<span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;display:inline-block;background:'+lg.bg+';color:'+lg.t+';min-width:65px;text-align:center;margin-top:2px">'+lg.l+'</span>';
-    h+='<div><span style="font-size:12px;font-weight:700;color:#334155">'+lg.r+'</span>';
-    h+='<span style="font-size:12px;color:#64748b"> -- '+lg.d+'</span></div></div>';
+    h+='<span style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;display:inline-block;background:'+lg.bg+';color:'+lg.tc+';min-width:65px;text-align:center;margin-top:2px">'+t(lg.lk)+'</span>';
+    h+='<div><span style="font-size:12px;font-weight:700;color:#334155">'+t(lg.rk)+'</span>';
+    h+='<span style="font-size:12px;color:#64748b"> -- '+t(lg.dk)+'</span></div></div>';
   }
   h+='</div>';
 
-  // TL;DR
-  h+='<div style="margin-top:12px;padding:14px;border-radius:10px;font-size:13px;background:#fffbeb;border:1px solid #fde68a"><b>TL;DR:</b> A quick open/close barely helps (~4% exchange). You need the door open for <b>at least 5 minutes</b> for a significant difference, and <b>~10 minutes</b> for a near-complete reset.</div>';
-  h+='<div style="margin-top:10px;padding:14px;border-radius:10px;font-size:12px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534"><b>Tip:</b> These are worst-case (perfectly sealed, no wind). Real mamads leak air, and waving a towel near the open door speeds exchange dramatically.</div>';
+  // TL;DR + tip
+  h+='<div style="margin-top:12px;padding:14px;border-radius:10px;font-size:13px;background:#fffbeb;border:1px solid #fde68a"><b>'+t('tldrLabel')+'</b> '+t('tldrText')+'</div>';
+  h+='<div style="margin-top:10px;padding:14px;border-radius:10px;font-size:12px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534"><b>'+t('tipLabel')+'</b> '+t('tipText')+'</div>';
 
-  // Calculations
-  h+='<div style="margin-top:20px;padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0">';
-  h+='<h4 style="font-size:15px;font-weight:700;margin-bottom:12px">How Are These Numbers Calculated?</h4>';
+  // calculations — always LTR, formulas and sources stay in English
+  h+='<div style="margin-top:20px;padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0" dir="ltr">';
+  h+='<h4 style="font-size:15px;font-weight:700;margin-bottom:12px">'+t('calcTitle')+'</h4>';
 
   h+='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px;font-family:monospace;font-size:13px;line-height:1.7;color:#334155">';
   h+='<b style="font-family:system-ui,sans-serif">Room Volume</b><br>';
