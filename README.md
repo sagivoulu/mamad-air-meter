@@ -40,9 +40,13 @@ Given your mamad's dimensions and how many people are sleeping inside, it calcul
 - Standard Israeli residential ceiling height: 2.5m
 - No wind (affects door-opening exchange estimates)
 
+## Live Demo
+
+**https://sagivoulu.github.io/mamad-air-meter/**
+
 ## Usage
 
-Open `mamad-calc-html.html` in any browser. No server or dependencies needed — it's a single self-contained HTML file.
+Open `index.html` in any browser. No server or dependencies needed — it's a single self-contained HTML file.
 
 Adjust the sliders for:
 - Room width and length
